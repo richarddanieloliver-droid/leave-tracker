@@ -102,7 +102,15 @@ export function makeBackup(years: LeaveYear[], entries: LeaveEntry[]): Backup {
 }
 
 export function parseBackup(text: string): Backup {
-  const b = JSON.parse(text)
+  if (text.startsWith('PK')) {
+    throw new Error('That looks like an Excel file. Choose a Leave Tracker backup (.json) file instead.')
+  }
+  let b
+  try {
+    b = JSON.parse(text)
+  } catch {
+    throw new Error('This is not a Leave Tracker backup file.')
+  }
   if (b?.format !== 'leave-tracker/v1' || !Array.isArray(b.years) || !Array.isArray(b.entries)) {
     throw new Error('This is not a Leave Tracker backup file.')
   }
