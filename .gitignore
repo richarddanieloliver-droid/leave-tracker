@@ -1,0 +1,8 @@
+node_modules
+dist
+.env.local
+*.xlsx
+*.jpg
+data/
+__pycache__/
+.claude/
