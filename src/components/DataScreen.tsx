@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { todayIso } from '../lib/dates'
 import { entryDays, entryStatus, STATUS_LABEL } from '../lib/leave'
-import { makeBackup, parseBackup, store } from '../lib/store'
+import { makeBackup, parseBackup, store, supabase } from '../lib/store'
 import type { Backup, LeaveEntry, LeaveYear } from '../lib/types'
 
 interface Props {
@@ -35,6 +35,46 @@ function toCsv(years: LeaveYear[], entries: LeaveEntry[]) {
   lines.push(['Year', 'Entitlement', 'Carried in', 'Adjustment', 'Adjustment note'])
   for (const y of years) lines.push([y.year, y.base_entitlement, y.carried_in, y.adjustment, y.adjustment_note].map(q) as string[])
   return '﻿' + lines.map((l) => l.join(',')).join('\r\n') // BOM so Excel reads it as UTF-8
+}
+
+/** Lets you sign in with a password on other devices instead of waiting for an email code. */
+function SetPassword() {
+  const [pw, setPw] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null)
+  const mismatch = pw2.length > 0 && pw !== pw2
+
+  async function save() {
+    setBusy(true)
+    setMsg(null)
+    const { error } = await supabase!.auth.updateUser({ password: pw })
+    setBusy(false)
+    if (error) setMsg({ text: error.message, error: true })
+    else {
+      setMsg({ text: 'Password saved. Use it to sign in on your other devices.' })
+      setPw('')
+      setPw2('')
+    }
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 8, marginTop: 6 }}>
+      <span className="field-label">Set or change password</span>
+      <div className="row2">
+        <input type="password" autoComplete="new-password" placeholder="New password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        <input type="password" autoComplete="new-password" placeholder="Repeat it" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+      </div>
+      {mismatch && <p style={{ color: 'var(--danger)' }}>The passwords don't match.</p>}
+      <div>
+        <button className="btn small" disabled={busy || pw.length < 8 || pw !== pw2} onClick={save}>
+          {busy ? 'Saving…' : 'Save password'}
+        </button>
+        {pw.length > 0 && pw.length < 8 && <small style={{ color: 'var(--muted)', marginLeft: 10 }}>At least 8 characters</small>}
+      </div>
+      {msg && <p style={{ color: msg.error ? 'var(--danger)' : 'var(--mint)' }}>{msg.text}</p>}
+    </div>
+  )
 }
 
 export function DataScreen({ years, entries, email, onReplace, onSignOut }: Props) {
@@ -104,6 +144,7 @@ export function DataScreen({ years, entries, email, onReplace, onSignOut }: Prop
         ) : (
           <>
             <p>Signed in as {email}. Your data is stored in your own Supabase database.</p>
+            <SetPassword />
             <div className="actions" style={{ marginTop: 4 }}>
               <button className="btn ghost" onClick={onSignOut}>Sign out</button>
             </div>
